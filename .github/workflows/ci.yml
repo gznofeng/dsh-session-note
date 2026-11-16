@@ -1,0 +1,56 @@
+# Continuous integration for dsh-session-note.
+#
+# These checks mirror the awesome-dsh-plugin submission gate: a package only
+# reaches the market if its manifest is installable with `dsh plugin add` and its
+# tarball is publishable to npm. Everything here runs on the Node.js standard
+# library, so there is deliberately NO `npm install` / `npm ci` step — this repo
+# has zero runtime dependencies and zero build steps, and CI stays offline-safe.
+#
+# `test/manifest.test.js` carries the manifest contract and runs
+# `npm pack --dry-run` itself, so the same checks are reproducible locally with
+# `npm test`.
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    name: test (node 22)
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        node-version: [22]
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js ${{ matrix.node-version }}
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ matrix.node-version }}
+
+      # No dependency install. If this step needs one, the plugin has broken its
+      # "no dependencies, no build" promise.
+      #
+      # The glob is quoted on purpose: Node 22's test runner takes file paths and
+      # glob patterns, not directories (`node --test test/` fails with
+      # MODULE_NOT_FOUND), and quoting stops the shell from expanding it so the
+      # glob matches recursively on every platform.
+      - name: Run the test suite
+        run: node --test "test/**/*.test.js"
+
+      - name: Check the manifest and packaging contract
+        run: node --test "test/manifest.test.js"
+
+      # Belt and braces: the manifest test already packs, but this makes the
+      # publishable file list visible in the CI log when a `files` entry drifts.
+      - name: Verify the publishable tarball
+        run: npm pack --dry-run

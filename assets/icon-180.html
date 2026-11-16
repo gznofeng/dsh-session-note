@@ -1,0 +1,59 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<style>
+  html, body { margin: 0; padding: 0; background: transparent; }
+  /* Two stages so the same artwork can be rendered at the two sizes that matter:
+     180px (the asset we ship) and 96px (what the storefront actually draws). */
+  .stage { display: flex; align-items: center; justify-content: center; background: transparent; }
+  #s180 { width: 180px; height: 180px; }
+  #s96  { width: 96px;  height: 96px; }
+  .tile {
+    background: linear-gradient(160deg, #fffdf7 0%, #fdf1cf 58%, #f7e3a6 100%);
+    box-shadow: inset 0 0 0 1.5px rgba(176, 125, 18, 0.30);
+    display: flex; align-items: center; justify-content: center;
+  }
+  #s180 .tile { width: 180px; height: 180px; border-radius: 36px; }
+  #s96  .tile { width: 96px;  height: 96px;  border-radius: 19px; }
+  svg { display: block; }
+</style>
+</head>
+<body>
+  <div class="stage" id="s180">
+    <div class="tile">
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="150" height="150" role="img" aria-label="Memo">
+        <defs>
+          <linearGradient id="sheet" x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0" stop-color="#fffaea"/>
+            <stop offset="1" stop-color="#ffe7a0"/>
+          </linearGradient>
+        </defs>
+        <rect x="8" y="3" width="48" height="58" rx="8" fill="url(#sheet)" stroke="#b07d12" stroke-width="2.6"/>
+        <rect x="17" y="15" width="30" height="4.4" rx="2.2" fill="#7a5a10"/>
+        <rect x="17" y="26" width="30" height="4.4" rx="2.2" fill="#7a5a10" fill-opacity="0.82"/>
+        <rect x="17" y="37" width="21" height="4.4" rx="2.2" fill="#7a5a10" fill-opacity="0.62"/>
+        <path d="M18 48.5l7.4 4.2-7.4 4.2z" fill="#b07d12" fill-opacity="0.85"/>
+      </svg>
+    </div>
+  </div>
+
+  <div class="stage" id="s96">
+    <div class="tile">
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="80" height="80" role="img" aria-hidden="true">
+        <defs>
+          <linearGradient id="sheet96" x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0" stop-color="#fffaea"/>
+            <stop offset="1" stop-color="#ffe7a0"/>
+          </linearGradient>
+        </defs>
+        <rect x="8" y="3" width="48" height="58" rx="8" fill="url(#sheet96)" stroke="#b07d12" stroke-width="2.6"/>
+        <rect x="17" y="15" width="30" height="4.4" rx="2.2" fill="#7a5a10"/>
+        <rect x="17" y="26" width="30" height="4.4" rx="2.2" fill="#7a5a10" fill-opacity="0.82"/>
+        <rect x="17" y="37" width="21" height="4.4" rx="2.2" fill="#7a5a10" fill-opacity="0.62"/>
+        <path d="M18 48.5l7.4 4.2-7.4 4.2z" fill="#b07d12" fill-opacity="0.85"/>
+      </svg>
+    </div>
+  </div>
+</body>
+</html>

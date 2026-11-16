@@ -1,0 +1,17 @@
+# OS clutter
+.DS_Store
+Thumbs.db
+
+# Dependencies (this package has none; the line keeps a stray install out of git)
+node_modules/
+
+# Logs and scratch files
+*.log
+*.tmp
+
+# Editors
+.idea/
+.vscode/
+
+# The plugin's runtime state lives under $DSH_HOME/plugin-data/, never in this
+# repo, so there is nothing else to ignore.
