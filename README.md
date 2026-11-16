@@ -1,63 +1,54 @@
-# Session memos
+# dsh-session-note
 
-A tab in the conversation view that holds short handwritten notes, one list per
-conversation, stored in a file on this machine.
+[![dsh-plugin](https://img.shields.io/badge/dsh-plugin-blue)](https://github.com/topics/dsh-plugin)
+[![License: MIT](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
 
-It adds exactly one surface — a tab registered in the `conversation.view` slot —
-and nothing else: no tools, no prompts, no background jobs, and no network calls
-off the machine.
+会话备忘录插件：在 DSH 的对话视图里加一个「备忘录」标签页，每个会话有自己独立的手写笔记列表，
+存在本机文件里。
 
-## Install
+<p align="center">
+  <img src="docs/images/use.png" alt="对话视图中的备忘录标签页" width="720">
+</p>
+
+它只加这一个界面——注册在 `conversation.view` 插槽的一个标签页——别的什么都不做：
+没有工具、没有提示词注入、没有后台任务，也没有任何出网的请求。
+
+## 功能
+
+- **添加**备忘录：标题可选、正文必填；没写标题的显示为「未命名备忘」。
+- **编辑**：就地修改，`createdAt` 保留、`updatedAt` 更新，列表自动把最近动过的排最前。
+- **复制**：一键把正文复制到剪贴板，按钮短暂变成「已复制」；浏览器拒绝写入时会明说，
+  正文保持可选中。写入被禁用时复制仍然可用，损坏文件里的备忘录也能拷出来。
+- **删除**：一行二次确认挡着，误点不会丢笔记。
+- 初始为空列表，不预置任何内容。
+
+快捷键：`Ctrl`/`Cmd` + `Enter` 保存打开的表单，`Escape` 关闭。界面文案有中英两份，跟随宿主语言。
+
+## 安装
 
 ```sh
 dsh plugin add gznofeng/dsh-session-note
 ```
 
-The plugin then contributes its tab to the conversation view. It needs no
-configuration and has no settings to edit.
+装好后对话视图里即出现备忘录标签页，无需任何配置。
 
-## What it does
+## 按会话隔离
 
-- **Add** a memo with an optional title and a body. The body is required; a memo
-  without a title is displayed as "Untitled memo" in the English copy.
-- **Edit** a memo in place. `createdAt` is preserved, `updatedAt` moves, and the
-  list re-sorts so the most recently touched memo is on top.
-- **Copy** a memo's body to the clipboard in one click. The button turns into
-  "Copied" for a moment; if the browser refuses the write it says so and leaves
-  the text selectable. Copying is available even when writes are disabled, so a
-  memo can still be recovered from a state file that will not parse.
-- **Delete** a memo behind a one-row confirmation, so a stray click cannot drop
-  a note.
-- Starts from a blank list. Nothing is seeded.
+`conversation.view` 插槽是会话维度的：宿主把当前渲染的会话 id 传给标签页，这个 id
+是决定读写哪个数据桶的唯一依据：
 
-Keyboard: `Ctrl`/`Cmd` + `Enter` saves the open form, `Escape` closes it. The
-interface copy is available in English and Chinese and follows the host locale.
+- 浏览器端按会话 id 各存一份，上限为最近使用的 32 个会话，切换会话绝不会串到别的会话的笔记。
+- 每个 HTTP 请求都带 id：两条读路由用 `?sessionId=`，写路由放在请求体里。
+- 缺失或超长的 `sessionId` 一律 **400**，绝不静默读到错误的桶。
+- 拿不到 id 时标签页拒绝写入并提示「无法识别当前会话」，而不是显示一个看似「这个会话没有备忘录」的空列表。
 
-## Per-conversation scoping
-
-The `conversation.view` slot is session-scoped, so the host calls the tab's
-`inject(sessionId)` with the id of the conversation being rendered, and that id
-is the only thing deciding which bucket is read or written:
-
-- The browser keeps one store per session id, bounded to the 32 most recently
-  used sessions, so switching conversations never shows another conversation's
-  notes.
-- Every HTTP call carries the id: `?sessionId=` on the two read routes, and
-  `sessionId` inside the write body.
-- A missing or over-long `sessionId` is a **400**, never a silent read of the
-  wrong bucket.
-- With no id available the tab refuses to write and shows a notice that the
-  conversation could not be identified, rather than presenting an empty list as
-  if the conversation had no memos.
-
-## Where data lives
+## 数据存哪
 
 ```text
 $DSH_HOME/plugin-data/dsh-session-note.json
 ```
 
-`$DSH_HOME` defaults to `~/.dsh`. One file, one shape — `sessions` maps a
-conversation id to that conversation's own list:
+`$DSH_HOME` 默认 `~/.dsh`。一个文件、一种结构——`sessions` 把会话 id 映射到该会话自己的列表：
 
 ```json
 {
@@ -66,8 +57,8 @@ conversation id to that conversation's own list:
     "session-9b9100a3-…": [
       {
         "id": "9f0c…",
-        "title": "Groceries",
-        "body": "milk\neggs",
+        "title": "购物清单",
+        "body": "牛奶\n鸡蛋",
         "createdAt": 1763000000000,
         "updatedAt": 1763000000000
       }
@@ -76,79 +67,63 @@ conversation id to that conversation's own list:
 }
 ```
 
-A session with no memos has no entry and is never written as `[]`, so the file
-does not accumulate dead keys. Writes go through a temp file plus rename, so a
-crash mid-write leaves the previous file intact rather than a truncated one.
+没有备忘录的会话不写条目、绝不写 `[]`，文件不会积累死键。写入走「临时文件 + rename」，
+写一半崩溃时留下的是上一个完整文件，不会是截断的半个文件。
 
-A missing file is a normal first run: the tab opens empty. A file that exists but
-cannot be parsed is reported as such, and **all writes are refused** — the bytes
-may still be recoverable by hand, and overwriting them with an empty list would
-destroy the only copy. Repair or move the file, then restart DSH: the plugin reads
-its file when it activates, which is when a repaired file is picked up.
+文件不存在是正常的首次运行：标签页打开为空。文件存在但解析不了时会明确报出来，
+并且**拒绝一切写入**——那些字节可能还能手工救回来，用一个空列表覆盖掉就毁了唯一的副本。
+修好或挪走文件后重启 DSH 即可：插件在激活时读文件，那时就能读到修复后的版本。
 
-### Legacy v1 files
+### 旧版 v1 文件
 
-An older shape stored one flat list (`{ "version": 1, "memos": [ … ] }`) with no
-session dimension, and is still readable. Those notes cannot be attributed to any
-conversation, so a v1 file is read into the reserved bucket `__legacy__` instead
-of being guessed into a conversation or dropped. Nothing renders that bucket; it
-exists so the old notes are still on disk and inspectable. The next write
-upgrades the file to v2 and carries `__legacy__` along unchanged.
+更早的结构是单个扁平列表（`{ "version": 1, "memos": [ … ] }`），没有会话维度，至今仍可读取。
+那些笔记无法归属到任何会话，所以 v1 文件会读入保留桶 `__legacy__`，而不是猜测归到某个会话或直接丢弃。
+没有任何界面渲染这个桶；它只是让旧笔记还在磁盘上、还能查看。下次写入时文件升级到 v2，
+`__legacy__` 原样保留。
 
-## Loopback-only HTTP surface
+## HTTP 接口（仅限本机回环）
 
-Three routes, all under the plugin's own prefix:
+三条路由，都在插件自己的前缀下：
 
-| Purpose | Route |
+| 用途 | 路由 |
 |---|---|
-| Read one conversation's memos | `GET /plugins/dsh-session-note/state?sessionId=<id>` |
-| Write | `POST /plugins/dsh-session-note/memos` — `{ op: "upsert", sessionId, memo }` or `{ op: "delete", sessionId, id }` |
-| Re-read the file from disk | `POST /plugins/dsh-session-note/reload?sessionId=<id>` |
+| 读一个会话的备忘录 | `GET /plugins/dsh-session-note/state?sessionId=<id>` |
+| 写入 | `POST /plugins/dsh-session-note/memos` —— `{ op: "upsert", sessionId, memo }` 或 `{ op: "delete", sessionId, id }` |
+| 从磁盘重读文件 | `POST /plugins/dsh-session-note/reload?sessionId=<id>` |
 
-Every route accepts **loopback requests only**: a request arriving over the
-network is refused before any handler logic runs, including body reading. Every
-response is a JSON object — `{ memos, corrupt? }` on success, `{ error }` with
-400, 403, 405, 409 or 500 otherwise. `corrupt` appears only when true, so no
-reader has to tell `false` from absent.
+所有路由**只接受本机回环请求**：来自网络的请求在任何处理逻辑（包括读取请求体）之前就被拒绝。
+每个响应都是 JSON 对象——成功是 `{ memos, corrupt? }`，失败是 `{ error }` 配 400 / 403 / 405 / 409 / 500。
+`corrupt` 只在为真时出现，读的人不用区分「false」和「没有」。
 
-The write route answers 409 when an update names a memo that no longer exists (a
-second window deleted it), and 400 for a malformed request, a blank body, or a
-conversation that already holds its 2,000-memo cap. An over-long field is clamped
-to its limit rather than rejected: 200 characters for a title, 100,000 for a body.
+写路由在更新的备忘录已不存在时（被另一个窗口删了）答 409；请求格式错、正文为空、
+或该会话已达 2,000 条上限时答 400。超长字段会被截到上限而不是拒绝：标题 200 字符，正文 100,000 字符。
 
-## Failure behaviour
+## 出错时的表现
 
-| Situation | What the user sees |
+| 情况 | 用户看到什么 |
 |---|---|
-| First run, no file | The empty state and an Add button |
-| File exists but cannot be parsed | Writing is refused and the page says so; add, edit and delete are withheld |
-| Read fails (I/O, permissions) | An error with **Retry**, which asks the host to re-read the file, never a fake empty list |
-| Copy refused by the browser | A "could not copy" notice under the memo; the body stays on screen to select by hand |
-| Memo deleted in another window, then edited here | A "no longer exists" notice and a refresh — no duplicate is created |
-| Plugin unloaded | The tab, its styles and its dictionary registration go away with it |
+| 首次运行，没有文件 | 空状态和「添加」按钮 |
+| 文件存在但解析不了 | 拒绝写入并在页面明说；添加、编辑、删除全部停用 |
+| 读取失败（I/O、权限） | 报错并附**重试**按钮，让宿主重读文件；绝不假装一个空列表 |
+| 浏览器拒绝复制 | 备忘录下方提示「无法复制」；正文留在屏幕上可手动选中 |
+| 本窗口编辑时备忘录刚被别的窗口删除 | 提示「已不存在」并刷新——不产生重复条目 |
+| 插件卸载 | 标签页、样式、文案字典随宿主一起清掉 |
 
-## Technical notes
+## 技术说明
 
-- No bundled dependencies and no build step: plain JavaScript plus Node
-  built-ins. The only peer dependency declared is the host's own
-  `@deepseek-ai/cordis`.
-- `index.js` is the host entry. It opens the state file, registers the loopback
-  routes, and stays active in a profile with no web server (it then registers no
-  routes rather than failing to mount).
-- `client.js` is the browser artifact, registered through
-  `window.__ModuleLoader__.load`. It is one self-contained file: everything it
-  renders, including its styles, lives inside the component.
-- `lib/` holds the pure store, the file lifecycle and the routes.
-- `icon.svg` is the plugin's own artwork. `assets/icon-180.png` is the same
-  artwork rasterized at 180x180 for plugin-market storefronts, which refuse
-  SVG; `assets/icon-180.html` is the page it was rendered from. None of these
-  is loaded at runtime, so none is part of the published package.
+- 无依赖、无构建步骤：纯 JavaScript 加 Node 内置模块。唯一声明的 peer dependency 是宿主自己的
+  `@deepseek-ai/cordis`。
+- `index.js` 是宿主入口：打开状态文件、注册回环路由；profile 里没有 web 服务器时也保持激活
+  （此时只是不注册路由，而不是挂载失败）。
+- `client.js` 是浏览器产物，经 `window.__ModuleLoader__.load` 注册，单文件自包含：
+  它渲染的一切（包括样式）都在这一个文件里。
+- `lib/` 放纯 store、文件生命周期和路由。
+- `icon.svg` 是插件自绘图标；`assets/icon-180.png` 是同一幅图的 180×180 位图
+  （插件市场不收 SVG），`assets/icon-180.html` 是渲染它的页面。这些都不参与运行时，也不打进发布包。
 
-Memos are deliberately kept in a file rather than in the session log: they must
-survive restarts and belong to the machine rather than to one session's event
-stream. Scoping is therefore by session id in this file, not by session-owned
-events.
+备忘录特意放在文件里而不是会话日志里：它们必须活过重启，而且属于这台机器而不属于某个会话的事件流。
+所以隔离靠文件里按会话 id 分桶，而不是靠会话自有事件。
 
-## License
+## 许可
 
-MIT — see [LICENSE](LICENSE).
+MIT —— 见 [LICENSE](LICENSE)。
